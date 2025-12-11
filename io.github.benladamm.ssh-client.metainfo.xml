@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.benladamm.ssh_client</id>
+  <id>io.github.benladamm.ssh-client</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>Modern SSH Client</name>
@@ -11,7 +11,7 @@
       It features a clean interface, host management, and terminal emulation using VTE.
     </p>
   </description>
-  <launchable type="desktop-id">io.github.benladamm.ssh_client.desktop</launchable>
+  <launchable type="desktop-id">io.github.benladamm.ssh-client.desktop</launchable>
   <url type="homepage">https://github.com/benladamm/ssh-client</url>
   <url type="bugtracker">https://github.com/benladamm/ssh-client/issues</url>
   <content_rating type="oars-1.1" />
