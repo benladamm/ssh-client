@@ -1,0 +1,488 @@
+/* =====================================================
+   Modern SSH Client - Light Theme
+   ===================================================== */
+
+/* CSS Custom Properties (Variables) */
+@define-color bg-primary #ffffff;
+@define-color bg-secondary #f8fafc;
+@define-color bg-tertiary #f1f5f9;
+@define-color bg-card rgba(0, 0, 0, 0.03);
+@define-color accent-primary #4f46e5;
+@define-color accent-secondary #7c3aed;
+@define-color accent-success #059669;
+@define-color accent-danger #dc2626;
+@define-color accent-warning #d97706;
+@define-color text-primary #0f172a;
+@define-color text-secondary #334155;
+@define-color text-muted #64748b;
+@define-color border-subtle rgba(0, 0, 0, 0.06);
+@define-color border-glow rgba(79, 70, 229, 0.3);
+
+/* ===== Global Window ===== */
+window {
+    background-color: @bg-primary;
+    color: @text-primary;
+    font-family: 'Inter', 'Segoe UI', 'Cantarell', sans-serif;
+}
+
+/* ===== Sidebar Navigation ===== */
+.sidebar {
+    background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+    border-right: 1px solid @border-subtle;
+    padding: 16px 8px;
+}
+
+/* App Logo/Branding Area */
+.sidebar-header {
+    padding: 20px 10px 30px 10px;
+    border-bottom: 1px solid @border-subtle;
+    margin-bottom: 20px;
+}
+
+.sidebar-logo {
+    color: @accent-primary;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+/* Navigation Buttons */
+.nav-button {
+    background-color: transparent;
+    border: none;
+    border-radius: 12px;
+    color: @text-muted;
+    padding: 14px 12px;
+    margin: 4px 0;
+    transition: all 0.2s ease;
+}
+
+.nav-button:hover {
+    background-color: rgba(79, 70, 229, 0.1);
+    color: @text-primary;
+}
+
+.nav-button:active,
+.nav-button:checked {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+    color: @accent-primary;
+    box-shadow: 0 0 20px rgba(79, 70, 229, 0.1);
+}
+
+.nav-button-active {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+    color: @accent-primary;
+    box-shadow: 0 0 20px rgba(79, 70, 229, 0.1);
+}
+
+.nav-button-active image {
+    color: @accent-primary;
+}
+
+.nav-button:checked image {
+    color: @accent-primary;
+}
+
+.nav-button label {
+    font-size: 11px;
+    font-weight: 500;
+    margin-top: 6px;
+}
+
+.nav-button image {
+    color: inherit;
+}
+
+/* ===== View Titles & Subtitles ===== */
+.view-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: @text-primary;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+}
+
+.view-subtitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: @text-secondary;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    margin-top: 24px;
+}
+
+.view-description {
+    font-size: 15px;
+    color: @text-muted;
+    margin-bottom: 32px;
+}
+
+/* ===== Home Container ===== */
+.home-container {
+    padding: 40px;
+}
+
+.welcome-section {
+    margin-bottom: 40px;
+}
+
+/* ===== Host Cards (Recent Connections) ===== */
+.host-card {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.01) 100%);
+    border: 1px solid @border-subtle;
+    border-radius: 16px;
+    padding: 24px;
+    margin: 8px;
+    min-width: 180px;
+    transition: all 0.25s ease;
+}
+
+.host-card:hover {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.05) 0%, rgba(124, 58, 237, 0.02) 100%);
+    border-color: @border-glow;
+    box-shadow: 0 8px 32px rgba(79, 70, 229, 0.08);
+    transform: translateY(-4px);
+}
+
+.host-card:active {
+    transform: translateY(-2px);
+}
+
+.card-icon {
+    color: @accent-primary;
+    margin-bottom: 12px;
+}
+
+.card-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: @text-primary;
+    margin-bottom: 4px;
+}
+
+.card-subtitle {
+    font-size: 12px;
+    color: @text-secondary;
+}
+
+/* ===== Host List (Hosts View) ===== */
+.host-row {
+    background: transparent;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin: 4px 0;
+    transition: all 0.2s ease;
+}
+
+.host-row:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.content-view {
+    background: transparent;
+}
+
+.content-view row {
+    background: transparent;
+    border-radius: 12px;
+    margin: 2px 0;
+    transition: background 0.2s ease;
+}
+
+.content-view row:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.content-view row:selected {
+    background: rgba(79, 70, 229, 0.1);
+}
+
+/* Group Headers */
+.group-header {
+    font-weight: 700;
+    font-size: 12px;
+    color: @text-muted;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 16px 0 8px 0;
+}
+
+/* ===== Buttons ===== */
+button {
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid @border-subtle;
+    border-radius: 10px;
+    color: @text-primary;
+    padding: 10px 20px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    background: rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+button:active {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* Primary/Suggested Action Button */
+button.suggested-action {
+    background: linear-gradient(135deg, @accent-primary 0%, @accent-secondary 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(79, 70, 229, 0.2);
+}
+
+button.suggested-action:hover {
+    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.3);
+    filter: brightness(1.1);
+}
+
+button.suggested-action:active {
+    filter: brightness(0.95);
+}
+
+/* Danger Button */
+button.destructive-action {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: rgba(220, 38, 38, 0.2);
+    color: @accent-danger;
+}
+
+button.destructive-action:hover {
+    background: rgba(220, 38, 38, 0.15);
+    border-color: rgba(220, 38, 38, 0.3);
+}
+
+/* Connect Button */
+.connect-button {
+    background: linear-gradient(135deg, rgba(5, 150, 105, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+    border-color: rgba(5, 150, 105, 0.2);
+    color: @accent-success;
+}
+
+.connect-button:hover {
+    background: linear-gradient(135deg, rgba(5, 150, 105, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%);
+    border-color: rgba(5, 150, 105, 0.3);
+    box-shadow: 0 4px 15px rgba(5, 150, 105, 0.1);
+}
+
+/* ===== Entry Fields ===== */
+entry {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid @border-subtle;
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: @text-primary;
+    caret-color: @accent-primary;
+    transition: all 0.2s ease;
+}
+
+entry:focus {
+    border-color: @accent-primary;
+    background: rgba(79, 70, 229, 0.05);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+entry placeholder {
+    color: @text-muted;
+}
+
+/* ===== Combo Boxes ===== */
+combobox {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid @border-subtle;
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: @text-primary;
+}
+
+combobox:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+dropdown {
+    background: @bg-tertiary;
+    border: 1px solid @border-subtle;
+    border-radius: 10px;
+    padding: 8px;
+}
+
+/* ===== Scrollbars ===== */
+scrollbar {
+    background: transparent;
+}
+
+scrollbar slider {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    min-width: 8px;
+    min-height: 8px;
+}
+
+scrollbar slider:hover {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+scrollbar slider:active {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* ===== Terminal View ===== */
+.terminal-view {
+    background-color: @bg-primary;
+    padding: 0;
+}
+
+/* ===== Notebook Tabs (Terminal Tabs) ===== */
+notebook {
+    background: @bg-secondary;
+}
+
+notebook header {
+    background: @bg-secondary;
+    border-bottom: 1px solid @border-subtle;
+    padding: 4px 8px;
+}
+
+notebook tab {
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    margin: 2px;
+    color: @text-muted;
+    transition: all 0.2s ease;
+}
+
+notebook tab:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: @text-secondary;
+}
+
+notebook tab:checked {
+    background: rgba(79, 70, 229, 0.1);
+    color: @accent-primary;
+}
+
+/* Tab Close Button */
+notebook tab button {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 4px;
+    margin-left: 8px;
+    opacity: 0.6;
+}
+
+notebook tab button:hover {
+    background: rgba(220, 38, 38, 0.1);
+    opacity: 1;
+}
+
+/* ===== Status Bar ===== */
+.status-bar {
+    background: @bg-secondary;
+    border-top: 1px solid @border-subtle;
+    color: @text-muted;
+    font-size: 12px;
+    padding: 6px 16px;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-indicator.connected {
+    background: @accent-success;
+    box-shadow: 0 0 8px rgba(5, 150, 105, 0.4);
+}
+
+.status-indicator.disconnected {
+    background: @text-muted;
+}
+
+/* ===== Dialog Windows ===== */
+dialog,
+window.dialog {
+    background: @bg-secondary;
+    border: 1px solid @border-subtle;
+    border-radius: 16px;
+}
+
+messagedialog {
+    background: @bg-secondary;
+}
+
+/* ===== Labels ===== */
+.dim-label {
+    color: @text-muted;
+    font-size: 12px;
+}
+
+/* ===== Separators ===== */
+separator {
+    background: @border-subtle;
+    min-height: 1px;
+}
+
+/* ===== Lists ===== */
+list {
+    background: transparent;
+}
+
+listbox {
+    background: transparent;
+}
+
+/* ===== Empty State ===== */
+.empty-state {
+    color: @text-muted;
+    font-size: 14px;
+    padding: 40px;
+}
+
+.empty-state-icon {
+    color: @text-muted;
+    opacity: 0.5;
+    margin-bottom: 16px;
+}
+
+/* ===== Animations ===== */
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 15px rgba(79, 70, 229, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 0 25px rgba(79, 70, 229, 0.4);
+    }
+}
+
+.pulse-animation {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ===== Tooltips ===== */
+tooltip {
+    background: @bg-tertiary;
+    border: 1px solid @border-subtle;
+    border-radius: 8px;
+    color: @text-primary;
+    padding: 8px 12px;
+}
+
+/* ===== Header Bar (if used) ===== */
+headerbar {
+    background: @bg-secondary;
+    border-bottom: 1px solid @border-subtle;
+    color: @text-primary;
+}
