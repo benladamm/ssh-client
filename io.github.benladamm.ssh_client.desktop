@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Modern SSH Client
+Comment=A modern SSH client built with GTK4
+Exec=modern_ssh
+Icon=io.github.benladamm.ssh_client
+Terminal=false
+Type=Application
+Categories=Network;RemoteAccess;
+StartupNotify=true

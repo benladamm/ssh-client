@@ -59,3 +59,19 @@ install(FILES
     resources/style-light.css
     DESTINATION ${CMAKE_INSTALL_DATADIR}/modern_ssh
 )
+
+# Installation du fichier Desktop
+install(FILES io.github.benladamm.ssh_client.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+)
+
+# Installation du fichier Metainfo (AppStream)
+install(FILES io.github.benladamm.ssh_client.metainfo.xml
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo
+)
+
+# Installation de l'icône
+install(FILES resources/icon.svg
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+    RENAME io.github.benladamm.ssh_client.svg
+)
