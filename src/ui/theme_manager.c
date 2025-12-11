@@ -18,9 +18,24 @@ void theme_manager_set_theme(AppTheme theme) {
     }
 
     current_provider = gtk_css_provider_new();
-    const char *css_file = (theme == THEME_LIGHT) ? "style-light.css" : "style.css";
+    const char *css_filename = (theme == THEME_LIGHT) ? "style-light.css" : "style.css";
+    char *css_path = NULL;
+
+#ifdef RESOURCE_DIR
+    char *installed_path = g_build_filename(RESOURCE_DIR, css_filename, NULL);
+    if (g_file_test(installed_path, G_FILE_TEST_EXISTS)) {
+        css_path = installed_path;
+    } else {
+        g_free(installed_path);
+    }
+#endif
+
+    if (!css_path) {
+        css_path = g_strdup(css_filename);
+    }
     
-    gtk_css_provider_load_from_path(current_provider, css_file);
+    gtk_css_provider_load_from_path(current_provider, css_path);
+    g_free(css_path);
     
     gtk_style_context_add_provider_for_display(display,
                                                GTK_STYLE_PROVIDER(current_provider),

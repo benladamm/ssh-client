@@ -49,6 +49,9 @@ configure_file(resources/style-light.css ${CMAKE_BINARY_DIR}/style-light.css COP
 # Installation (Requis pour Flatpak/Packaging)
 include(GNUInstallDirs)
 
+# Définir le chemin des ressources pour le code C
+add_compile_definitions(RESOURCE_DIR="${CMAKE_INSTALL_FULL_DATADIR}/modern_ssh")
+
 install(TARGETS modern_ssh
     DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
