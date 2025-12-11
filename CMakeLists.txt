@@ -42,6 +42,20 @@ add_executable(modern_ssh ${SOURCES})
 # Explicitly link with libraries found by PkgConfig
 target_link_libraries(modern_ssh ${GTK4_LIBRARIES} ${LIBSSH_LIBRARIES} ${VTE_LIBRARIES} ${SQLITE3_LIBRARIES} Threads::Threads)
 
-# Copy CSS file to build folder for execution
+# Copie du fichier CSS dans le dossier de build pour l'exécution locale
 configure_file(resources/style.css ${CMAKE_BINARY_DIR}/style.css COPYONLY)
 configure_file(resources/style-light.css ${CMAKE_BINARY_DIR}/style-light.css COPYONLY)
+
+# Installation (Requis pour Flatpak/Packaging)
+include(GNUInstallDirs)
+
+install(TARGETS modern_ssh
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Installation des ressources (CSS) dans /share/modern_ssh
+install(FILES 
+    resources/style.css 
+    resources/style-light.css
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/modern_ssh
+)

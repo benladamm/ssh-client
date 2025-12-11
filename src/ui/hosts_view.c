@@ -1,6 +1,9 @@
 #include "hosts_view.h"
-#include "terminal_view.h"
 #include "db.h"
+#include "ssh_backend.h"
+#include "terminal_view.h"
+#include "sftp_view.h"
+#include <gtk/gtk.h>
 
 typedef struct {
     GtkWidget *list_box;
@@ -8,195 +11,81 @@ typedef struct {
 } HostsViewData;
 
 static void refresh_hosts_list(HostsViewData *data);
+static GtkWidget* create_host_row(Host *h, HostsViewData *data);
 
 static void on_connect_clicked(GtkWidget *btn, gpointer user_data) {
-    Host *host = (Host *)user_data;
-    GtkWidget *main_stack = g_object_get_data(G_OBJECT(btn), "main_stack");
+    Host *host = (Host*)user_data;
+    GtkWidget *main_stack = GTK_WIDGET(g_object_get_data(G_OBJECT(btn), "main_stack"));
     
-    GtkWidget *term_view = gtk_stack_get_child_by_name(GTK_STACK(main_stack), "terminal");
-    GtkWidget *files_view = gtk_stack_get_child_by_name(GTK_STACK(main_stack), "files");
-    
-    Host *proxy_host = NULL;
-    if (host->proxy_host_id > 0) {
-        proxy_host = db_get_host_by_id(host->proxy_host_id);
-    }
-
-    if (g_strcmp0(host->protocol, "sftp") == 0 || g_strcmp0(host->protocol, "ftp") == 0) {
-        extern void sftp_view_connect(GtkWidget *view, Host *host);
-        
-        sftp_view_connect(files_view, host);
+    if (g_strcmp0(host->protocol, "sftp") == 0) {
+        // SFTP
+        GtkWidget *sftp_view = gtk_stack_get_child_by_name(GTK_STACK(main_stack), "files");
+        sftp_view_connect(sftp_view, host);
         gtk_stack_set_visible_child_name(GTK_STACK(main_stack), "files");
-        
     } else {
-        terminal_view_connect(term_view, host->hostname, host->port, host->username, host->password, host->key_path, host->protocol, proxy_host);
+        // SSH / Telnet
+        GtkWidget *term_view = gtk_stack_get_child_by_name(GTK_STACK(main_stack), "terminal");
+        
+        Host *proxy = NULL;
+        if (host->proxy_host_id > 0) {
+            proxy = db_get_host_by_id(host->proxy_host_id);
+        }
+        
+        terminal_view_connect(term_view, host->hostname, host->port, host->username, host->password, host->key_path, host->protocol, proxy);
+        
+        if (proxy) {
+            db_free_host(proxy);
+        }
+        
         gtk_stack_set_visible_child_name(GTK_STACK(main_stack), "terminal");
     }
-    
-    if (proxy_host) {
-        free(proxy_host->hostname);
-        free(proxy_host->username);
-        if(proxy_host->password) free(proxy_host->password);
-        if(proxy_host->key_path) free(proxy_host->key_path);
-        if(proxy_host->protocol) free(proxy_host->protocol);
-        free(proxy_host);
-    }
-    
-    gtk_stack_set_visible_child_name(GTK_STACK(main_stack), "terminal");
 }
 
-static void on_auth_type_changed(GtkComboBox *combo, gpointer user_data) {
-    GtkWidget **entries = (GtkWidget **)user_data;
-    const char *id = gtk_combo_box_get_active_id(combo);
-    
-    if (g_strcmp0(id, "password") == 0) {
-        gtk_widget_set_visible(entries[6], TRUE);
-        gtk_widget_set_visible(entries[7], FALSE);
-        gtk_editable_set_text(GTK_EDITABLE(entries[5]), "");
-    } else {
-        gtk_widget_set_visible(entries[6], FALSE);
-        gtk_widget_set_visible(entries[7], TRUE);
-        gtk_editable_set_text(GTK_EDITABLE(entries[4]), "");
-    }
-}
-
-static void show_error_dialog(GtkWidget *parent, const char *message) {
-    GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(parent),
-                                             GTK_DIALOG_MODAL,
-                                             GTK_MESSAGE_ERROR,
-                                             GTK_BUTTONS_OK,
-                                             "%s", message);
-    g_signal_connect(dialog, "response", G_CALLBACK(gtk_window_destroy), NULL);
-    gtk_widget_set_visible(dialog, TRUE);
-}
-
-typedef struct {
-    GtkWidget **entries;
-    HostsViewData *view_data;
-    Host *editing_host; // NULL if adding new
-} HostDialogData;
-
-static void on_add_host_save(GtkWidget *btn, gpointer user_data) {
-    GtkWidget *dialog = gtk_widget_get_ancestor(btn, GTK_TYPE_WINDOW);
-    HostDialogData *hdd = (HostDialogData *)user_data;
-    GtkWidget **entries = hdd->entries;
+static void on_save_host(GtkWidget *btn, gpointer user_data) {
+    GtkWidget *dialog = GTK_WIDGET(gtk_widget_get_root(btn));
+    GtkWidget **entries = (GtkWidget**)user_data;
+    HostsViewData *view_data = g_object_get_data(G_OBJECT(dialog), "view_data");
+    Host *host_to_edit = g_object_get_data(G_OBJECT(dialog), "host_to_edit");
     
     const char *name = gtk_editable_get_text(GTK_EDITABLE(entries[0]));
-    const char *host = gtk_editable_get_text(GTK_EDITABLE(entries[1]));
+    const char *hostname = gtk_editable_get_text(GTK_EDITABLE(entries[1]));
     const char *port_str = gtk_editable_get_text(GTK_EDITABLE(entries[2]));
     const char *user = gtk_editable_get_text(GTK_EDITABLE(entries[3]));
-    const char *password = gtk_editable_get_text(GTK_EDITABLE(entries[4]));
-    const char *key_path = gtk_editable_get_text(GTK_EDITABLE(entries[5]));
-    
-    if (strlen(name) == 0) {
-        show_error_dialog(dialog, "Name is required.");
-        return;
-    }
-    if (strlen(host) == 0) {
-        show_error_dialog(dialog, "Host (IP) is required.");
-        return;
-    }
-    if (strlen(user) == 0) {
-        show_error_dialog(dialog, "User is required.");
-        return;
-    }
-    
-    if (!hdd->editing_host || g_strcmp0(hdd->editing_host->name, name) != 0) {
-        if (db_host_exists(name)) {
-            show_error_dialog(dialog, "A host with this name already exists.");
-            return;
-        }
-    }
-    
-    if (gtk_widget_get_visible(entries[6])) {
-        if (strlen(password) == 0) {
-            
-        }
-    } else {
-        if (strlen(key_path) == 0) {
-            show_error_dialog(dialog, "Key path is required.");
-            return;
-        }
-    }
-    
-    GtkComboBox *proto_combo = GTK_COMBO_BOX(entries[8]);
-    const char *protocol = gtk_combo_box_get_active_id(proto_combo);
-    
-    GtkComboBox *group_combo = GTK_COMBO_BOX(entries[9]);
-    const char *group_id_str = gtk_combo_box_get_active_id(group_combo);
-    int group_id = group_id_str ? atoi(group_id_str) : 0;
-
-    GtkComboBox *proxy_combo = GTK_COMBO_BOX(entries[10]);
-    const char *proxy_id_str = gtk_combo_box_get_active_id(proxy_combo);
-    int proxy_host_id = proxy_id_str ? atoi(proxy_id_str) : 0;
+    const char *pass = gtk_editable_get_text(GTK_EDITABLE(entries[4]));
+    const char *key = gtk_editable_get_text(GTK_EDITABLE(entries[5]));
+    const char *proto = gtk_combo_box_get_active_id(GTK_COMBO_BOX(entries[8]));
+    const char *group_id_str = gtk_combo_box_get_active_id(GTK_COMBO_BOX(entries[9]));
+    const char *proxy_id_str = gtk_combo_box_get_active_id(GTK_COMBO_BOX(entries[10]));
     
     int port = atoi(port_str);
-    if (port == 0) port = 22;
-
-    if (hdd->editing_host) {
-        db_update_host(hdd->editing_host->id, name, host, port, user, password, key_path, protocol, group_id, proxy_host_id);
-    } else {
-        db_add_host(name, host, port, user, password, key_path, protocol, group_id, proxy_host_id);
+    int group_id = atoi(group_id_str ? group_id_str : "0");
+    int proxy_id = atoi(proxy_id_str ? proxy_id_str : "0");
+    
+    if (strlen(name) == 0 || strlen(hostname) == 0 || strlen(user) == 0) {
+        // TODO: Show error
+        return;
     }
     
-    refresh_hosts_list(hdd->view_data);
+    if (host_to_edit) {
+        db_update_host(host_to_edit->id, name, hostname, port, user, pass, key, proto, group_id, proxy_id);
+    } else {
+        db_add_host(name, hostname, port, user, pass, key, proto, group_id, proxy_id);
+    }
     
+    refresh_hosts_list(view_data);
     gtk_window_destroy(GTK_WINDOW(dialog));
     g_free(entries);
-    g_free(hdd);
 }
 
-static void on_add_group_save(GtkWidget *btn, gpointer user_data) {
-    GtkWidget *dialog = gtk_widget_get_ancestor(btn, GTK_TYPE_WINDOW);
-    GtkWidget *entry = GTK_WIDGET(user_data);
-    const char *name = gtk_editable_get_text(GTK_EDITABLE(entry));
-    
-    if (strlen(name) > 0) {
-        db_add_group(name);
-        HostsViewData *view_data = g_object_get_data(G_OBJECT(dialog), "view_data");
-        if (view_data) refresh_hosts_list(view_data);
-    }
-    
-    gtk_window_destroy(GTK_WINDOW(dialog));
-}
-
-static void on_add_group_clicked(GtkWidget *btn, gpointer user_data) {
-    HostsViewData *data = (HostsViewData *)user_data;
-    GtkWidget *window = gtk_widget_get_ancestor(btn, GTK_TYPE_WINDOW);
-    
-    GtkWidget *dialog = gtk_window_new();
-    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
-    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
-static void on_add_group_clicked(GtkWidget *btn, gpointer user_data) {
-    HostsViewData *data = (HostsViewData *)user_data;
-    GtkWidget *window = gtk_widget_get_ancestor(btn, GTK_TYPE_WINDOW);
-    
-    GtkWidget *dialog = gtk_window_new();
-    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
-    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
-    gtk_window_set_title(GTK_WINDOW(dialog), "New Group");
-    gtk_window_set_default_size(GTK_WINDOW(dialog), 300, 150);
-    gtk_widget_add_css_class(dialog, "dialog");
-    
-    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
-    gtk_widget_set_margin_top(vbox, 20);
-    gtk_widget_set_margin_bottom(vbox, 20);
-    gtk_widget_set_margin_start(vbox, 20);
-    gtk_widget_set_margin_end(vbox, 20);
-    gtk_window_set_child(GTK_WINDOW(dialog), vbox);
-    
-    gtk_box_append(GTK_BOX(vbox), gtk_label_new("Group Name"));
-    GtkWidget *entry = gtk_entry_new();
-    gtk_box_append(GTK_BOX(vbox), entry);
-    
-    GtkWidget *btn_save = gtk_button_new_with_label("Create");
-    gtk_widget_add_css_class(btn_save, "suggested-action");
 static void show_host_dialog(GtkWidget *parent, HostsViewData *data, Host *host_to_edit) {
     GtkWidget *dialog = gtk_window_new();
-    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(parent));
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(gtk_widget_get_root(parent)));
     gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
     gtk_window_set_title(GTK_WINDOW(dialog), host_to_edit ? "Edit Host" : "New Host");
-    gtk_window_set_default_size(GTK_WINDOW(dialog), 450, 600);
-    gtk_widget_add_css_class(dialog, "dialog");
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 400, 550);
+    
+    g_object_set_data(G_OBJECT(dialog), "view_data", data);
+    g_object_set_data(G_OBJECT(dialog), "host_to_edit", host_to_edit);
     
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
     gtk_widget_set_margin_top(vbox, 24);
@@ -231,6 +120,19 @@ static void show_host_dialog(GtkWidget *parent, HostsViewData *data, Host *host_
         gtk_box_append(GTK_BOX(vbox), entries[i]);
     }
     
+    // Password & Key
+    gtk_box_append(GTK_BOX(vbox), gtk_label_new(labels[4]));
+    entries[4] = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entries[4]), placeholders[4]);
+    gtk_entry_set_visibility(GTK_ENTRY(entries[4]), FALSE);
+    gtk_box_append(GTK_BOX(vbox), entries[4]);
+
+    gtk_box_append(GTK_BOX(vbox), gtk_label_new(labels[5]));
+    entries[5] = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entries[5]), placeholders[5]);
+    gtk_box_append(GTK_BOX(vbox), entries[5]);
+    
+    // Protocol
     gtk_box_append(GTK_BOX(vbox), gtk_label_new("Protocol"));
     GtkWidget *proto_combo = gtk_combo_box_text_new();
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(proto_combo), "ssh", "SSH");
@@ -241,6 +143,7 @@ static void show_host_dialog(GtkWidget *parent, HostsViewData *data, Host *host_
     gtk_box_append(GTK_BOX(vbox), proto_combo);
     entries[8] = proto_combo;
 
+    // Group
     gtk_box_append(GTK_BOX(vbox), gtk_label_new("Group"));
     GtkWidget *group_combo = gtk_combo_box_text_new();
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(group_combo), "0", "None");
@@ -258,6 +161,7 @@ static void show_host_dialog(GtkWidget *parent, HostsViewData *data, Host *host_
     gtk_box_append(GTK_BOX(vbox), group_combo);
     entries[9] = group_combo;
 
+    // Proxy
     gtk_box_append(GTK_BOX(vbox), gtk_label_new("Proxy Jump (Optional)"));
     GtkWidget *proxy_combo = gtk_combo_box_text_new();
     gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(proxy_combo), "0", "None");
@@ -265,6 +169,7 @@ static void show_host_dialog(GtkWidget *parent, HostsViewData *data, Host *host_
     int host_count = 0;
     Host **hosts = db_get_all_hosts(&host_count);
     for(int i=0; i<host_count; i++) {
+        if (host_to_edit && hosts[i]->id == host_to_edit->id) continue; // Don't proxy to self
         char id_str[32];
         sprintf(id_str, "%d", hosts[i]->id);
         gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(proxy_combo), id_str, hosts[i]->name);
@@ -275,126 +180,107 @@ static void show_host_dialog(GtkWidget *parent, HostsViewData *data, Host *host_
     gtk_box_append(GTK_BOX(vbox), proxy_combo);
     entries[10] = proxy_combo;
     
-    // Auth Method
-    gtk_box_append(GTK_BOX(vbox), gtk_label_new("Authentication Method"));
-    GtkWidget *combo = gtk_combo_box_text_new();
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(combo), "password", "Password");
-    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(combo), "key", "Public Key");
-    gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), "password");
-    gtk_box_append(GTK_BOX(vbox), combo);
-    
-    // Champs Auth
-    entries[6] = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-    gtk_box_append(GTK_BOX(entries[6]), gtk_label_new(labels[4]));
-    entries[4] = gtk_entry_new();
-    gtk_entry_set_placeholder_text(GTK_ENTRY(entries[4]), placeholders[4]);
-    gtk_entry_set_visibility(GTK_ENTRY(entries[4]), FALSE);
-    gtk_box_append(GTK_BOX(entries[6]), entries[4]);
-    gtk_box_append(GTK_BOX(vbox), entries[6]);
-
-    entries[7] = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-    gtk_box_append(GTK_BOX(entries[7]), gtk_label_new(labels[5]));
-    entries[5] = gtk_entry_new();
-    gtk_entry_set_placeholder_text(GTK_ENTRY(entries[5]), placeholders[5]);
-    gtk_box_append(GTK_BOX(entries[7]), entries[5]);
-    gtk_box_append(GTK_BOX(vbox), entries[7]);
-    
-    gtk_widget_set_visible(entries[7], FALSE);
-    
-    g_signal_connect(combo, "changed", G_CALLBACK(on_auth_type_changed), entries);
-    
-    // Si édition, pré-remplir les champs
+    // Fill values if editing
     if (host_to_edit) {
         gtk_editable_set_text(GTK_EDITABLE(entries[0]), host_to_edit->name);
         gtk_editable_set_text(GTK_EDITABLE(entries[1]), host_to_edit->hostname);
-        
-        char port_str[32];
-        sprintf(port_str, "%d", host_to_edit->port);
-        gtk_editable_set_text(GTK_EDITABLE(entries[2]), port_str);
-        
+        char port_buf[16];
+        sprintf(port_buf, "%d", host_to_edit->port);
+        gtk_editable_set_text(GTK_EDITABLE(entries[2]), port_buf);
         gtk_editable_set_text(GTK_EDITABLE(entries[3]), host_to_edit->username);
+        if (host_to_edit->password) gtk_editable_set_text(GTK_EDITABLE(entries[4]), host_to_edit->password);
+        if (host_to_edit->key_path) gtk_editable_set_text(GTK_EDITABLE(entries[5]), host_to_edit->key_path);
+        if (host_to_edit->protocol) gtk_combo_box_set_active_id(GTK_COMBO_BOX(proto_combo), host_to_edit->protocol);
         
-        if (host_to_edit->password)
-            gtk_editable_set_text(GTK_EDITABLE(entries[4]), host_to_edit->password);
-            
-        if (host_to_edit->key_path) {
-            gtk_editable_set_text(GTK_EDITABLE(entries[5]), host_to_edit->key_path);
-            if (strlen(host_to_edit->key_path) > 0) {
-                 gtk_combo_box_set_active_id(GTK_COMBO_BOX(combo), "key");
-                 gtk_widget_set_visible(entries[6], FALSE);
-                 gtk_widget_set_visible(entries[7], TRUE);
-            }
-        }
+        char group_buf[16];
+        sprintf(group_buf, "%d", host_to_edit->group_id);
+        gtk_combo_box_set_active_id(GTK_COMBO_BOX(group_combo), group_buf);
         
-        if (host_to_edit->protocol)
-            gtk_combo_box_set_active_id(GTK_COMBO_BOX(proto_combo), host_to_edit->protocol);
-
-        char gid_str[32];
-        sprintf(gid_str, "%d", host_to_edit->group_id);
-        gtk_combo_box_set_active_id(GTK_COMBO_BOX(group_combo), gid_str);
-        
-        char pid_str[32];
-        sprintf(pid_str, "%d", host_to_edit->proxy_host_id);
-        gtk_combo_box_set_active_id(GTK_COMBO_BOX(proxy_combo), pid_str);
+        char proxy_buf[16];
+        sprintf(proxy_buf, "%d", host_to_edit->proxy_host_id);
+        gtk_combo_box_set_active_id(GTK_COMBO_BOX(proxy_combo), proxy_buf);
     }
-    
-    HostDialogData *hdd = g_new(HostDialogData, 1);
-    hdd->entries = entries;
-    hdd->view_data = data;
-    hdd->editing_host = host_to_edit;
 
-    GtkWidget *btn_save = gtk_button_new_with_label(host_to_edit ? "Edit" : "Save");
+    GtkWidget *btn_save = gtk_button_new_with_label("Save");
     gtk_widget_add_css_class(btn_save, "suggested-action");
-    g_signal_connect(btn_save, "clicked", G_CALLBACK(on_add_host_save), hdd);
+    g_signal_connect(btn_save, "clicked", G_CALLBACK(on_save_host), entries);
     gtk_box_append(GTK_BOX(vbox), btn_save);
     
     gtk_window_present(GTK_WINDOW(dialog));
 }
 
 static void on_add_host_clicked(GtkWidget *btn, gpointer user_data) {
-    HostsViewData *data = (HostsViewData *)user_data;
-    GtkWidget *window = gtk_widget_get_ancestor(btn, GTK_TYPE_WINDOW);
-    show_host_dialog(window, data, NULL);
+    show_host_dialog(btn, (HostsViewData*)user_data, NULL);
 }
 
 static void on_edit_host_clicked(GtkWidget *btn, gpointer user_data) {
-    int host_id = GPOINTER_TO_INT(user_data);
+    int id = GPOINTER_TO_INT(user_data);
     HostsViewData *data = g_object_get_data(G_OBJECT(btn), "view_data");
-    GtkWidget *window = gtk_widget_get_ancestor(btn, GTK_TYPE_WINDOW);
-    
-    Host *host = db_get_host_by_id(host_id);
-    if (host) {
-        show_host_dialog(window, data, host);
-        // Note: host is leaked here technically because show_host_dialog doesn't free it and db_get returns a malloc'd host.
-        // We should handle cleanup in dialog destroy or save. 
-        // For MVP, small leak.
+    Host *h = db_get_host_by_id(id);
+    if (h) {
+        show_host_dialog(btn, data, h);
     }
 }
 
 static void on_delete_host_clicked(GtkWidget *btn, gpointer user_data) {
-    int host_id = GPOINTER_TO_INT(user_data);
+    int id = GPOINTER_TO_INT(user_data);
     HostsViewData *data = g_object_get_data(G_OBJECT(btn), "view_data");
- 
-    db_delete_host(host_id);
+    db_delete_host(id);
     refresh_hosts_list(data);
 }
 
 static void on_delete_group_clicked(GtkWidget *btn, gpointer user_data) {
-    int group_id = GPOINTER_TO_INT(user_data);
+    int id = GPOINTER_TO_INT(user_data);
     HostsViewData *data = g_object_get_data(G_OBJECT(btn), "view_data");
-    
-    // Confirmation dialog could be nice
-    db_delete_group(group_id);
+    db_delete_group(id);
     refresh_hosts_list(data);
 }
 
+static void on_save_group(GtkWidget *btn, gpointer user_data) {
+    GtkWidget *entry = GTK_WIDGET(user_data);
+    GtkWidget *dialog = GTK_WIDGET(gtk_widget_get_root(btn));
+    HostsViewData *view_data = g_object_get_data(G_OBJECT(dialog), "view_data");
+    
+    const char *name = gtk_editable_get_text(GTK_EDITABLE(entry));
+    if (strlen(name) > 0) {
+        db_add_group(name);
+        refresh_hosts_list(view_data);
+    }
+    gtk_window_destroy(GTK_WINDOW(dialog));
+}
+
+static void on_add_group_clicked(GtkWidget *btn, gpointer user_data) {
+    HostsViewData *data = (HostsViewData*)user_data;
+    GtkWidget *dialog = gtk_window_new();
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(gtk_widget_get_root(btn)));
+    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+    gtk_window_set_title(GTK_WINDOW(dialog), "New Group");
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 300, 150);
+    
+    g_object_set_data(G_OBJECT(dialog), "view_data", data);
+    
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_widget_set_margin_top(vbox, 20);
+    gtk_widget_set_margin_bottom(vbox, 20);
+    gtk_widget_set_margin_start(vbox, 20);
+    gtk_widget_set_margin_end(vbox, 20);
+    gtk_window_set_child(GTK_WINDOW(dialog), vbox);
+    
+    GtkWidget *entry = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Group Name");
+    gtk_box_append(GTK_BOX(vbox), entry);
+    
+    GtkWidget *btn_save = gtk_button_new_with_label("Create");
+    gtk_widget_add_css_class(btn_save, "suggested-action");
+    g_signal_connect(btn_save, "clicked", G_CALLBACK(on_save_group), entry);
+    gtk_box_append(GTK_BOX(vbox), btn_save);
+    
+    gtk_window_present(GTK_WINDOW(dialog));
+}
+
 static GtkWidget* create_host_row(Host *h, HostsViewData *data) {
-    GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+    GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     gtk_widget_add_css_class(row, "host-row");
-    gtk_widget_set_margin_top(row, 8);
-    gtk_widget_set_margin_bottom(row, 8);
-    gtk_widget_set_margin_start(row, 16);
-    gtk_widget_set_margin_end(row, 16);
     
     const char *icon_name = "network-server-symbolic";
     if (g_strcmp0(h->protocol, "ftp") == 0 || g_strcmp0(h->protocol, "sftp") == 0) {
@@ -461,12 +347,60 @@ static GtkWidget* create_host_row(Host *h, HostsViewData *data) {
     return row;
 }
 
-static void refresh_hosts_list(HostsViewData *data) {
-    // Nettoyer la liste actuelle
-    GtkWidget *child = gtk_widget_get_first_child(data->list_box);
-    while (child != NULL) {
-        GtkWidget *next = gtk_widget_get_next_sibling(child);
-        gtk_list_box_remove(GTK_LIST_BOX(data->list_box), child);
+// Helper function for refresh_hosts_list
+static void add_group_ui(HostsViewData *data, Host **hosts, int host_count, int group_id, const char *group_name, bool is_deletable) {
+    GtkWidget *group_row = gtk_list_box_row_new();
+    gtk_list_box_row_set_selectable(GTK_LIST_BOX_ROW(group_row), FALSE);
+    
+    GtkWidget *expander = gtk_expander_new(NULL);
+    gtk_expander_set_expanded(GTK_EXPANDER(expander), TRUE);
+    
+    GtkWidget *header_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    GtkWidget *lbl = gtk_label_new(NULL);
+    char markup[256];
+    snprintf(markup, sizeof(markup), "<b>%s</b>", group_name);
+    gtk_label_set_markup(GTK_LABEL(lbl), markup);
+    gtk_box_append(GTK_BOX(header_box), lbl);
+    
+    if (is_deletable) {
+        GtkWidget *spacer = gtk_label_new("");
+        gtk_widget_set_hexpand(spacer, TRUE);
+        gtk_box_append(GTK_BOX(header_box), spacer);
+        
+        GtkWidget *btn_del = gtk_button_new_from_icon_name("user-trash-symbolic");
+        gtk_widget_add_css_class(btn_del, "destructive-action");
+        gtk_widget_add_css_class(btn_del, "small-button");
+        g_object_set_data(G_OBJECT(btn_del), "view_data", data);
+        g_signal_connect(btn_del, "clicked", G_CALLBACK(on_delete_group_clicked), GINT_TO_POINTER(group_id));
+        gtk_box_append(GTK_BOX(header_box), btn_del);
+    }
+    
+    gtk_expander_set_label_widget(GTK_EXPANDER(expander), header_box);
+    
+    GtkWidget *group_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_add_css_class(group_content, "group-content");
+    
+    int count_in_group = 0;
+    for (int i = 0; i < host_count; i++) {
+        if (hosts[i]->group_id == group_id) {
+            gtk_box_append(GTK_BOX(group_content), create_host_row(hosts[i], data));
+            count_in_group++;
+        }
+    }
+    
+    if (count_in_group == 0) {
+        GtkWidget *empty = gtk_label_new("<i>No servers</i>");
+        gtk_label_set_use_markup(GTK_LABEL(empty), TRUE);
+        gtk_widget_set_margin_top(empty, 8);
+        gtk_widget_set_margin_bottom(empty, 8);
+        gtk_box_append(GTK_BOX(group_content), empty);
+    }
+    
+    gtk_expander_set_child(GTK_EXPANDER(expander), group_content);
+    gtk_list_box_row_set_child(GTK_LIST_BOX_ROW(group_row), expander);
+    gtk_list_box_append(GTK_LIST_BOX(data->list_box), group_row);
+}
+
 static void refresh_hosts_list(HostsViewData *data) {
     GtkWidget *child = gtk_widget_get_first_child(data->list_box);
     while (child != NULL) {
@@ -479,67 +413,14 @@ static void refresh_hosts_list(HostsViewData *data) {
     Host **hosts = db_get_all_hosts(&host_count);
     
     int group_count = 0;
-    Group **groups = db_get_all_groups(&group_count);ander_new(NULL);
-        gtk_expander_set_expanded(GTK_EXPANDER(expander), TRUE);
-        
-        // Custom Label Widget pour l'expander avec bouton suppression
-        GtkWidget *header_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-        GtkWidget *lbl = gtk_label_new(NULL);
-        char markup[256];
-        snprintf(markup, sizeof(markup), "<b>%s</b>", group_name);
-        gtk_label_set_markup(GTK_LABEL(lbl), markup);
-        gtk_box_append(GTK_BOX(header_box), lbl);
-        
-        if (is_deletable) {
-            GtkWidget *spacer = gtk_label_new("");
-            gtk_widget_set_hexpand(spacer, TRUE);
-            gtk_box_append(GTK_BOX(header_box), spacer);
-            
-            GtkWidget *btn_del = gtk_button_new_from_icon_name("user-trash-symbolic");
-            gtk_widget_add_css_class(btn_del, "destructive-action");
-            gtk_widget_add_css_class(btn_del, "small-button"); // Custom class if needed
-            // Empêcher l'expander de capturer le clic du bouton ? Gtk4 gère ça bien généralement via les contrôleurs
-            g_object_set_data(G_OBJECT(btn_del), "view_data", data);
-            g_signal_connect(btn_del, "clicked", G_CALLBACK(on_delete_group_clicked), GINT_TO_POINTER(group_id));
-            gtk_box_append(GTK_BOX(header_box), btn_del);
-        }
-        
-        gtk_expander_set_label_widget(GTK_EXPANDER(expander), header_box);
-        
-        // Contenu du groupe : une inner listbox ou vbox
-        GtkWidget *group_content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-        gtk_widget_add_css_class(group_content, "group-content");
-        
-        int count_in_group = 0;
-        for (int i = 0; i < host_count; i++) {
-            if (hosts[i]->group_id == group_id) {
-                // Ici on ajoute direct le row créé par create_host_row, qui retourne un GtkBox (pas un ListBoxRow)
-                // Donc on le wrap ? Non create_host_row retourne un Box.
-                // On l'ajoute au VBox group_content
-                gtk_box_append(GTK_BOX(group_content), create_host_row(hosts[i], data));
-                count_in_group++;
-            }
-        }
-        
-        if (count_in_group == 0) {
-            GtkWidget *empty = gtk_label_new("<i>Aucun serveur</i>");
-            gtk_label_set_use_markup(GTK_LABEL(empty), TRUE);
-            gtk_widget_set_margin_top(empty, 8);
-            gtk_widget_set_margin_bottom(empty, 8);
-            gtk_box_append(GTK_BOX(group_content), empty);
-        }
-        
-        gtk_expander_set_child(GTK_EXPANDER(expander), group_content);
-        gtk_list_box_row_set_child(GTK_LIST_BOX_ROW(group_row), expander);
-        gtk_list_box_append(GTK_LIST_BOX(data->list_box), group_row);
-    }
+    Group **groups = db_get_all_groups(&group_count);
     
-    // 1. Groupes nommés
+    // 1. Named Groups
     for (int g = 0; g < group_count; g++) {
-        add_group_ui(groups[g]->id, groups[g]->name, true);
+        add_group_ui(data, hosts, host_count, groups[g]->id, groups[g]->name, true);
     }
     
-    // 2. Groupe "Autres" (id 0) s'il y a des hôtes sans groupe
+    // 2. "Other" Group (id 0) if there are ungrouped hosts
     int has_ungrouped = 0;
     for (int i = 0; i < host_count; i++) {
         if (hosts[i]->group_id == 0) {
@@ -549,7 +430,7 @@ static void refresh_hosts_list(HostsViewData *data) {
     }
     
     if (has_ungrouped || group_count == 0) {
-        add_group_ui(0, group_count > 0 ? "Autres" : "Mes Serveurs", false);
+        add_group_ui(data, hosts, host_count, 0, group_count > 0 ? "Others" : "My Servers", false);
     }
     
     db_free_hosts(hosts, host_count);
@@ -568,7 +449,7 @@ GtkWidget* create_hosts_view(GtkWidget *main_stack) {
     
     // Header
     GtkWidget *header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
-    GtkWidget *title = gtk_label_new("Mes Hôtes");
+    GtkWidget *title = gtk_label_new("My Hosts");
     gtk_widget_add_css_class(title, "view-title");
     gtk_box_append(GTK_BOX(header), title);
     
@@ -576,18 +457,18 @@ GtkWidget* create_hosts_view(GtkWidget *main_stack) {
     gtk_widget_set_hexpand(spacer, TRUE);
     gtk_box_append(GTK_BOX(header), spacer);
     
-    GtkWidget *btn_add_group = gtk_button_new_with_label("Nouveau Groupe");
+    GtkWidget *btn_add_group = gtk_button_new_with_label("New Group");
     g_signal_connect(btn_add_group, "clicked", G_CALLBACK(on_add_group_clicked), data);
     gtk_box_append(GTK_BOX(header), btn_add_group);
 
-    GtkWidget *btn_add = gtk_button_new_with_label("+ Nouveau Serveur");
+    GtkWidget *btn_add = gtk_button_new_with_label("+ New Server");
     gtk_widget_add_css_class(btn_add, "suggested-action");
     g_signal_connect(btn_add, "clicked", G_CALLBACK(on_add_host_clicked), data);
     gtk_box_append(GTK_BOX(header), btn_add);
     
     gtk_box_append(GTK_BOX(box), header);
     
-    // Liste
+    // List
     GtkWidget *scrolled = gtk_scrolled_window_new();
     gtk_widget_set_vexpand(scrolled, TRUE);
     

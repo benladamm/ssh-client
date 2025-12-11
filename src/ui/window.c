@@ -23,8 +23,8 @@ static void update_button_active_state(GtkWidget *new_active) {
     }
 }
 
-// Redefine handler to be safer
 static void on_nav_button_clicked(GtkWidget *btn, gpointer user_data) {
+    GtkWidget *stack = GTK_WIDGET(user_data);
     
     if (btn == home_btn) {
         gtk_stack_set_visible_child_name(GTK_STACK(stack), "home");
@@ -43,13 +43,10 @@ static void on_nav_button_clicked(GtkWidget *btn, gpointer user_data) {
 
 static void on_fullscreen_clicked(GtkWidget *btn, gpointer user_data) {
     GtkRoot *root = gtk_widget_get_root(btn);
-static void on_fullscreen_clicked(GtkWidget *btn, gpointer user_data) {
-    GtkRoot *root = gtk_widget_get_root(btn);
     if (GTK_IS_WINDOW(root)) {
         GtkWindow *window = GTK_WINDOW(root);
         
         gboolean is_fullscreen = gtk_window_is_fullscreen(window);
-        gboolean is_maximized = gtk_window_is_maximized(window);
         
         if (is_fullscreen) {
             gtk_window_unfullscreen(window);
@@ -57,7 +54,25 @@ static void on_fullscreen_clicked(GtkWidget *btn, gpointer user_data) {
             gtk_window_fullscreen(window);
         }
     }
-}tkWidget* create_main_window(GtkApplication *app) {
+}
+
+static GtkWidget* create_nav_btn(const char* label, const char* icon_name) {
+    GtkWidget *btn = gtk_button_new();
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    GtkWidget *icon = gtk_image_new_from_icon_name(icon_name);
+    GtkWidget *lbl = gtk_label_new(label);
+    gtk_box_append(GTK_BOX(box), icon);
+    gtk_box_append(GTK_BOX(box), lbl);
+    gtk_button_set_child(GTK_BUTTON(btn), box);
+    gtk_widget_set_halign(box, GTK_ALIGN_START);
+    
+    gtk_widget_add_css_class(btn, "nav-button");
+    gtk_button_set_has_frame(GTK_BUTTON(btn), FALSE);
+    
+    return btn;
+}
+
+GtkWidget* create_main_window(GtkApplication *app) {
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "Modern SSH Client");
     gtk_window_set_default_size(GTK_WINDOW(window), 1000, 700);
@@ -66,14 +81,6 @@ static void on_fullscreen_clicked(GtkWidget *btn, gpointer user_data) {
     gtk_window_set_child(GTK_WINDOW(window), main_box);
 
     // Sidebar
-    GtkWidget *sidebar = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_widget_add_css_class(sidebar, "sidebar");
-    gtk_widget_set_size_request(sidebar, 240, -1);
-    gtk_box_append(GTK_BOX(main_box), sidebar);
-    
-    GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_window_set_child(GTK_WINDOW(window), main_box);
-
     GtkWidget *sidebar = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_widget_add_css_class(sidebar, "sidebar");
     gtk_widget_set_size_request(sidebar, 240, -1);
@@ -94,6 +101,7 @@ static void on_fullscreen_clicked(GtkWidget *btn, gpointer user_data) {
     gtk_box_append(GTK_BOX(header_box), app_title);
     gtk_box_append(GTK_BOX(sidebar), header_box);
 
+    // Stack for views
     GtkWidget *stack = gtk_stack_new();
     gtk_stack_set_transition_type(GTK_STACK(stack), GTK_STACK_TRANSITION_TYPE_SLIDE_LEFT_RIGHT);
     gtk_stack_set_transition_duration(GTK_STACK(stack), 200);
@@ -101,29 +109,17 @@ static void on_fullscreen_clicked(GtkWidget *btn, gpointer user_data) {
     gtk_widget_set_vexpand(stack, TRUE);
     gtk_box_append(GTK_BOX(main_box), stack);
 
-    GtkWidget* create_nav_btn(const char* label, const char* icon_name) {
-        GtkWidget *btn = gtk_button_new();
-        GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
-        GtkWidget *icon = gtk_image_new_from_icon_name(icon_name);
-        GtkWidget *lbl = gtk_label_new(label);
-        gtk_box_append(GTK_BOX(box), icon);
-        gtk_box_append(GTK_BOX(box), lbl);
-        gtk_button_set_child(GTK_BUTTON(btn), box);
-        gtk_widget_set_halign(box, GTK_ALIGN_START);
-        
-        gtk_widget_add_css_class(btn, "nav-button");
-        gtk_button_set_has_frame(GTK_BUTTON(btn), FALSE);
-        
-        return btn;
-    }tk_box_append(GTK_BOX(sidebar), hosts_btn);
-    gtk_box_append(GTK_BOX(sidebar), files_btn);
-// ... (previous code)
+    // Create Navigation Buttons
+    home_btn = create_nav_btn("Home", "user-home-symbolic");
+    hosts_btn = create_nav_btn("Hosts", "network-server-symbolic");
+    term_btn = create_nav_btn("Terminal", "utilities-terminal-symbolic");
+    files_btn = create_nav_btn("SFTP", "folder-remote-symbolic");
+    settings_btn = create_nav_btn("Settings", "emblem-system-symbolic");
 
-
-
-// ... (existing code for create_main_window)
-
+    gtk_box_append(GTK_BOX(sidebar), home_btn);
+    gtk_box_append(GTK_BOX(sidebar), hosts_btn);
     gtk_box_append(GTK_BOX(sidebar), term_btn);
+    gtk_box_append(GTK_BOX(sidebar), files_btn);
     
     GtkWidget *spacer = gtk_label_new("");
     gtk_widget_set_vexpand(spacer, TRUE);
@@ -135,10 +131,8 @@ static void on_fullscreen_clicked(GtkWidget *btn, gpointer user_data) {
     gtk_box_append(GTK_BOX(sidebar), fullscreen_btn);
     
     gtk_box_append(GTK_BOX(sidebar), settings_btn);
-    
-    // ... (rest of function)
 
-    // Views
+    // Create Views
     GtkWidget *home_view = create_home_view();
     GtkWidget *hosts_view = create_hosts_view(stack);
     GtkWidget *term_view = create_terminal_view();
@@ -151,24 +145,15 @@ static void on_fullscreen_clicked(GtkWidget *btn, gpointer user_data) {
     gtk_stack_add_named(GTK_STACK(stack), files_view, "files");
     gtk_stack_add_named(GTK_STACK(stack), settings_view, "settings");
 
-    // Init active state
-    update_button_active_state(home_btn);
-    GtkWidget *home_view = create_home_view();
-    GtkWidget *hosts_view = create_hosts_view(stack);
-    GtkWidget *term_view = create_terminal_view();
-    GtkWidget *files_view = create_sftp_view();
-    GtkWidget *settings_view = create_settings_view();
-
-    gtk_stack_add_named(GTK_STACK(stack), home_view, "home");
-    gtk_stack_add_named(GTK_STACK(stack), hosts_view, "hosts");
-    gtk_stack_add_named(GTK_STACK(stack), term_view, "terminal");
-    gtk_stack_add_named(GTK_STACK(stack), files_view, "files");
-    gtk_stack_add_named(GTK_STACK(stack), settings_view, "settings");
-
-    update_button_active_state(home_btn);
-    
+    // Connect signals
     g_signal_connect(home_btn, "clicked", G_CALLBACK(on_nav_button_clicked), stack);
     g_signal_connect(hosts_btn, "clicked", G_CALLBACK(on_nav_button_clicked), stack);
     g_signal_connect(files_btn, "clicked", G_CALLBACK(on_nav_button_clicked), stack);
     g_signal_connect(term_btn, "clicked", G_CALLBACK(on_nav_button_clicked), stack);
     g_signal_connect(settings_btn, "clicked", G_CALLBACK(on_nav_button_clicked), stack);
+
+    // Init active state
+    update_button_active_state(home_btn);
+
+    return window;
+}

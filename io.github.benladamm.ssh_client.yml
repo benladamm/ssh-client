@@ -1,0 +1,33 @@
+app-id: io.github.benladamm.ssh_client
+runtime: org.gnome.Platform
+runtime-version: '45'
+sdk: org.gnome.Sdk
+command: modern_ssh
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --filesystem=host
+  - --talk-name=org.freedesktop.secrets
+
+modules:
+  # Libssh is not in the GNOME SDK, so we build it
+  - name: libssh
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DWITH_EXAMPLES=OFF
+      - -DWITH_SERVER=OFF
+      - -DWITH_GSSAPI=OFF
+    sources:
+      - type: archive
+        url: https://www.libssh.org/files/0.10/libssh-0.10.6.tar.xz
+        sha256: 1861d49d25efed772dd4d13f26c83f5c659d079547e0329723b7e296c274d490
+
+  # Main Application
+  - name: modern_ssh
+    buildsystem: cmake-ninja
+    sources:
+      - type: dir
+        path: .

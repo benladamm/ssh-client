@@ -191,16 +191,6 @@ void ssh_proxy_poll(SSHContext* ctx) {
     char buffer[4096];
     int nbytes;
     
-    // 1. Read from Proxy Channel -> Write to Socket (to Target Session)
-    if (ssh_channel_poll(ctx->proxy_channel, 0) > 0) {
-        nbytes = ssh_channel_read_nonblocking(ctx->proxy_channel, buffer, sizeof(buffer), 0);
-        if (nbytes > 0) {
-void ssh_proxy_poll(SSHContext* ctx) {
-    if (!ctx || !ctx->proxy_channel || ctx->proxy_fd == -1) return;
-    
-    char buffer[4096];
-    int nbytes;
-    
     if (ssh_channel_poll(ctx->proxy_channel, 0) > 0) {
         nbytes = ssh_channel_read_nonblocking(ctx->proxy_channel, buffer, sizeof(buffer), 0);
         if (nbytes > 0) {
@@ -252,7 +242,17 @@ int ssh_read_nonblocking(SSHContext* ctx, char* buffer, size_t max_len) {
     return ssh_channel_read_nonblocking(ctx->channel, buffer, max_len, 0);
 }
 
+int ssh_write_data(SSHContext* ctx, const char* buffer, size_t len) {
+    if (!ctx || !ctx->channel) return -1;
+    return ssh_channel_write(ctx->channel, buffer, len);
+}
+
 const char* ssh_get_error_msg(SSHContext* ctx) {
     if (!ctx || !ctx->session) return "No session";
     return ssh_get_error(ctx->session);
+}
+
+bool ssh_is_channel_open(SSHContext* ctx) {
+    if (!ctx || !ctx->channel) return false;
+    return ssh_channel_is_open(ctx->channel) && !ssh_channel_is_eof(ctx->channel);
 }

@@ -51,6 +51,8 @@ bool db_delete_host(int id);
 
 void db_free_hosts(Host** hosts, int count);
 
+void db_free_host(Host* host);
+
 // --- GROUPS ---
 bool db_add_group(const char* name);
 

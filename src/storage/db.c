@@ -258,15 +258,20 @@ bool db_delete_host(int id) {
 void db_free_hosts(Host** hosts, int count) {
     if (!hosts) return;
     for (int i = 0; i < count; i++) {
-        free(hosts[i]->name);
-        free(hosts[i]->hostname);
-        free(hosts[i]->username);
-        if (hosts[i]->password) free(hosts[i]->password);
-        if (hosts[i]->key_path) free(hosts[i]->key_path);
-        free(hosts[i]->protocol);
-        free(hosts[i]);
+        db_free_host(hosts[i]);
     }
     free(hosts);
+}
+
+void db_free_host(Host* host) {
+    if (!host) return;
+    free(host->name);
+    free(host->hostname);
+    free(host->username);
+    if (host->password) free(host->password);
+    if (host->key_path) free(host->key_path);
+    free(host->protocol);
+    free(host);
 }
 
 // --- GROUPS ---

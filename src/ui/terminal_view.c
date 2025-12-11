@@ -145,8 +145,6 @@ void terminal_view_connect(GtkWidget *view, const char *hostname, int port, cons
     
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     tab->box = box;
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    tab->box = box;
     
     GtkWidget *scrolled = gtk_scrolled_window_new();
     gtk_widget_set_hexpand(scrolled, TRUE);
