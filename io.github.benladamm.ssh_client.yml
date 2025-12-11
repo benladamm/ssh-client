@@ -45,5 +45,6 @@ modules:
   - name: modern_ssh
     buildsystem: cmake-ninja
     sources:
-      - type: dir
-        path: .
+      - type: git
+        url: https://github.com/benladamm/ssh-client.git
+        branch: main
