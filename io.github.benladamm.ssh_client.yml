@@ -1,6 +1,6 @@
 app-id: io.github.benladamm.ssh_client
 runtime: org.gnome.Platform
-runtime-version: '45'
+runtime-version: '47'
 sdk: org.gnome.Sdk
 command: modern_ssh
 finish-args:
@@ -45,5 +45,6 @@ modules:
   - name: modern_ssh
     buildsystem: cmake-ninja
     sources:
-      - type: dir
-        path: .
+      - type: git
+        url: https://github.com/benladamm/ssh-client.git
+        branch: main
