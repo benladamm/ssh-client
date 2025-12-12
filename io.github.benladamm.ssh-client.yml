@@ -57,4 +57,4 @@ modules:
     sources:
       - type: git
         url: https://github.com/benladamm/ssh-client.git
-        commit: 8f382f473ca3dd8e948c988cacea3500456d6419
+        commit: b16f265c90b64bd66234c534ffb79780c060b684
