@@ -12,10 +12,11 @@
       It features a clean interface, host management, and terminal emulation using VTE.
     </p>
   </description>
-  <launchable type="desktop-id">io.github.benladamm.ssh_client.desktop</launchable>
+  <launchable type="desktop-id">io.github.benladamm.ssh-client.desktop</launchable>
   <screenshots>
     <screenshot type="default">
       <image>https://raw.githubusercontent.com/benladamm/ssh-client/main/resources/screenshot.png</image>
+      <caption>Main window showing host list</caption>
     </screenshot>
   </screenshots>
   <url type="homepage">https://github.com/benladamm/ssh-client</url>
